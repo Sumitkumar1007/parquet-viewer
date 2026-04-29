@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -12,8 +13,8 @@ class Settings:
     secret_key: str
     admin_username: str
     admin_password_hash: str
-    parquet_path: Path
-    parquet_root: Path
+    parquet_path: Any
+    parquet_root: Any
     session_ttl_minutes: int
     max_preview_rows: int
     default_page_size: int
@@ -45,8 +46,18 @@ def get_settings() -> Settings:
     secret_key = os.getenv("SECRET_KEY", "dev-secret-change-me")
     admin_username = os.getenv("ADMIN_USERNAME", "admin")
     admin_password_hash = os.getenv("ADMIN_PASSWORD_HASH", "")
-    parquet_path = Path(os.getenv("PARQUET_PATH", "./data/sample.parquet")).resolve()
-    parquet_root = Path(os.getenv("PARQUET_ROOT", str(parquet_path.parent))).resolve()
+    parquet_path_raw = os.getenv("PARQUET_PATH", "./data/sample.parquet")
+    parquet_path = parquet_path_raw if parquet_path_raw.startswith("hdfs://") else Path(parquet_path_raw).resolve()
+
+    parquet_root_raw = os.getenv("PARQUET_ROOT")
+    if parquet_root_raw:
+        parquet_root = parquet_root_raw if parquet_root_raw.startswith("hdfs://") else Path(parquet_root_raw).resolve()
+    else:
+        parquet_root = (
+            str(Path(str(parquet_path)).parent)
+            if isinstance(parquet_path, Path)
+            else str(parquet_path).rsplit("/", 1)[0]
+        )
     session_ttl_minutes = int(os.getenv("SESSION_TTL_MINUTES", "480"))
     max_preview_rows = int(os.getenv("MAX_PREVIEW_ROWS", "200"))
     default_page_size = int(os.getenv("DEFAULT_PAGE_SIZE", "50"))

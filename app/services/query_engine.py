@@ -118,7 +118,12 @@ class QueryEngine:
     def resolve_root(self, root_path: Optional[str] = None) -> Any:
         if root_path and self._is_hdfs_uri(root_path):
             return root_path.rstrip("/")
-        candidate = Path(root_path).expanduser().resolve() if root_path else self.parquet_root.resolve()
+        if root_path:
+            candidate = Path(root_path).expanduser().resolve()
+        elif isinstance(self.parquet_root, str) and self._is_hdfs_uri(self.parquet_root):
+            return self.parquet_root.rstrip("/")
+        else:
+            candidate = Path(self.parquet_root).expanduser().resolve()
         if candidate.exists() and not candidate.is_dir():
             raise QueryValidationError("Root path must be directory.")
         return candidate

@@ -34,6 +34,7 @@ let currentPage = 1;
 let currentPageSize = 50;
 let lastQuery = "SELECT * FROM current_parquet LIMIT 25";
 let lastMode = "preview";
+let isBusy = false;
 
 function applySidebarState(collapsed) {
   if (!appShell || !sidebarToggleButton) return;
@@ -62,6 +63,29 @@ function setStatus(message, isError = false) {
   resultsMeta.className = isError ? "hint error" : "hint";
 }
 
+function setBusyState(busy, message = "Loading...") {
+  isBusy = busy;
+  document.body.classList.toggle("app-busy", busy);
+
+  if (busy) {
+    setStatus(message);
+  }
+
+  refreshFilesButton.disabled = busy;
+  applyRootPathButton.disabled = busy;
+  refreshSchemaButton.disabled = busy;
+  previewButton.disabled = busy || !selectedFile;
+  runButton.disabled = busy || !selectedFile;
+  prevPageButton.disabled = busy || prevPageButton.disabled;
+  nextPageButton.disabled = busy || nextPageButton.disabled;
+
+  runButton.textContent = busy ? "Running..." : "Run Query";
+  previewButton.textContent = busy ? "Loading..." : "Preview";
+  refreshFilesButton.textContent = busy ? "Refreshing..." : "Refresh";
+  refreshSchemaButton.textContent = busy ? "Refreshing..." : "Refresh";
+  applyRootPathButton.textContent = busy ? "Loading..." : "Load";
+}
+
 function closePasswordModal() {
   passwordModal.hidden = true;
   passwordMessage.textContent = "";
@@ -74,17 +98,17 @@ function clearDatasetState(message = "No result yet.") {
   currentPage = 1;
   activeFile.textContent = "Active dataset: none";
   schemaList.innerHTML = `<div class="empty">No schema loaded.</div>`;
-  resultsTable.innerHTML = `<div class="empty">No parquet file selected.</div>`;
+  resultsTable.innerHTML = `<div class="empty">Click Preview to load rows.</div>`;
   previewButton.disabled = true;
   runButton.disabled = true;
   setStatus(message);
 }
 
 function setDatasetEnabled(enabled) {
-  previewButton.disabled = !enabled;
-  runButton.disabled = !enabled;
-  prevPageButton.disabled = !enabled;
-  nextPageButton.disabled = !enabled;
+  previewButton.disabled = !enabled || isBusy;
+  runButton.disabled = !enabled || isBusy;
+  prevPageButton.disabled = !enabled || isBusy;
+  nextPageButton.disabled = !enabled || isBusy;
 }
 
 function renderTable(result) {
@@ -177,7 +201,9 @@ function renderFiles(items) {
       renderFiles(items);
       try {
         await refreshSchema();
-        await loadPreview();
+        resultsTable.innerHTML = `<div class="empty">Click Preview to load rows.</div>`;
+        pageInfo.textContent = "Page 1";
+        setStatus("Dataset selected. Click Preview to load rows.");
       } catch (error) {
         setStatus(error.message, true);
       }
@@ -273,7 +299,8 @@ async function bootstrap() {
     const items = await refreshFiles();
     if (items.length) {
       await refreshSchema();
-      await loadPreview();
+      resultsTable.innerHTML = `<div class="empty">Click Preview to load rows.</div>`;
+      setStatus("Dataset ready. Click Preview to load rows.");
     }
   } catch {
     window.location.href = "/login";
@@ -297,25 +324,32 @@ logoutMenuButton.addEventListener("click", async () => {
 });
 
 refreshSchemaButton.addEventListener("click", async () => {
+  setBusyState(true, "Refreshing schema...");
   try {
     await refreshSchema();
     setStatus("Schema refreshed.");
   } catch (error) {
     setStatus(error.message, true);
+  } finally {
+    setBusyState(false);
   }
 });
 
 refreshFilesButton.addEventListener("click", async () => {
+  setBusyState(true, "Refreshing file list...");
   try {
     const items = await refreshFiles();
     if (items.length) {
       currentPage = 1;
       await refreshSchema();
-      await loadPreview();
-      setStatus("File list refreshed.");
+      resultsTable.innerHTML = `<div class="empty">Click Preview to load rows.</div>`;
+      pageInfo.textContent = "Page 1";
+      setStatus("File list refreshed. Click Preview to load rows.");
     }
   } catch (error) {
     setStatus(error.message, true);
+  } finally {
+    setBusyState(false);
   }
 });
 
@@ -323,39 +357,50 @@ applyRootPathButton.addEventListener("click", async () => {
   currentRootPath = rootPathInput.value.trim();
   recursiveScan = true;
   clearDatasetState("Loading root path...");
+  setBusyState(true, "Loading dataset...");
   try {
     const items = await refreshFiles();
     if (items.length) {
       await refreshSchema();
-      await loadPreview();
-      setStatus("Root path loaded.");
+      resultsTable.innerHTML = `<div class="empty">Click Preview to load rows.</div>`;
+      pageInfo.textContent = "Page 1";
+      setStatus("Root path loaded. Click Preview to load rows.");
     }
   } catch (error) {
     fileList.innerHTML = `<div class="empty">No parquet files found in root folder.</div>`;
     setStatus(error.message, true);
+  } finally {
+    setBusyState(false);
   }
 });
 
 previewButton.addEventListener("click", async () => {
+  setBusyState(true, "Loading preview...");
   try {
     currentPage = 1;
     await loadPreview();
   } catch (error) {
     setStatus(error.message, true);
+  } finally {
+    setBusyState(false);
   }
 });
 
 runButton.addEventListener("click", async () => {
+  setBusyState(true, "Running query...");
   try {
     currentPage = 1;
     await runQuery(queryInput.value, 1);
   } catch (error) {
     setStatus(error.message, true);
+  } finally {
+    setBusyState(false);
   }
 });
 
 prevPageButton.addEventListener("click", async () => {
   if (currentPage <= 1) return;
+  setBusyState(true, "Loading page...");
   try {
     const nextPage = currentPage - 1;
     if (lastMode === "preview") {
@@ -365,10 +410,13 @@ prevPageButton.addEventListener("click", async () => {
     }
   } catch (error) {
     setStatus(error.message, true);
+  } finally {
+    setBusyState(false);
   }
 });
 
 nextPageButton.addEventListener("click", async () => {
+  setBusyState(true, "Loading page...");
   try {
     const nextPage = currentPage + 1;
     if (lastMode === "preview") {
@@ -378,6 +426,8 @@ nextPageButton.addEventListener("click", async () => {
     }
   } catch (error) {
     setStatus(error.message, true);
+  } finally {
+    setBusyState(false);
   }
 });
 
