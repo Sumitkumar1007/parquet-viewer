@@ -16,6 +16,12 @@ class Settings:
     parquet_root: Path
     session_ttl_minutes: int
     max_preview_rows: int
+    default_page_size: int
+    max_page_size: int
+    max_upload_mb: int
+    allow_recursive_scan: bool
+    users_file: Path
+    audit_log_path: Path
 
 
 def _load_dotenv() -> None:
@@ -43,6 +49,12 @@ def get_settings() -> Settings:
     parquet_root = Path(os.getenv("PARQUET_ROOT", str(parquet_path.parent))).resolve()
     session_ttl_minutes = int(os.getenv("SESSION_TTL_MINUTES", "480"))
     max_preview_rows = int(os.getenv("MAX_PREVIEW_ROWS", "200"))
+    default_page_size = int(os.getenv("DEFAULT_PAGE_SIZE", "50"))
+    max_page_size = int(os.getenv("MAX_PAGE_SIZE", "500"))
+    max_upload_mb = int(os.getenv("MAX_UPLOAD_MB", "25"))
+    allow_recursive_scan = os.getenv("ALLOW_RECURSIVE_SCAN", "false").lower() == "true"
+    users_file = Path(os.getenv("USERS_FILE", "./runtime/users.json")).resolve()
+    audit_log_path = Path(os.getenv("AUDIT_LOG_PATH", "./runtime/audit.log")).resolve()
 
     return Settings(
         app_name=app_name,
@@ -54,4 +66,10 @@ def get_settings() -> Settings:
         parquet_root=parquet_root,
         session_ttl_minutes=session_ttl_minutes,
         max_preview_rows=max_preview_rows,
+        default_page_size=default_page_size,
+        max_page_size=max_page_size,
+        max_upload_mb=max_upload_mb,
+        allow_recursive_scan=allow_recursive_scan,
+        users_file=users_file,
+        audit_log_path=audit_log_path,
     )

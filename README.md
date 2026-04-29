@@ -80,7 +80,6 @@ parquet_viewer/
 │   │   └── styles.css
 │   ├── templates/
 │   │   ├── app.html
-│   │   ├── index.html
 │   │   └── login.html
 │   ├── config.py
 │   └── main.py
@@ -262,61 +261,6 @@ Run:
 ```bash
 docker run --rm -p 8000:8000 --env-file .env parquet-viewer
 ```
-
-## Git and Privacy Safety
-
-Repository target provided:
-
-- `https://github.com/Sumitkumar1007/parquet-viewer.git`
-
-Important:
-
-- do not commit `.env`
-- do not commit real parquet data with private records
-- do not commit secrets, tokens, password hashes meant for production, or internal folder paths if sensitive
-- review `git status` before every commit
-- review `git diff --staged` before push
-- keep sample/demo parquet files only if they contain fake data
-
-Safe files to push:
-
-- source code
-- templates
-- static assets
-- sample fake parquet files only
-- `.env.example`
-- `README.md`
-
-Unsafe files to push:
-
-- `.env`
-- private parquet datasets
-- customer/internal exports
-- secret config files
-- logs with sensitive values
-
-Recommended pre-push check:
-
-```bash
-git status
-git diff --staged
-```
-
-## Suggested Push Flow
-
-If you later push manually:
-
-```bash
-git init
-git remote add origin https://github.com/Sumitkumar1007/parquet-viewer.git
-git add .
-git status
-git diff --staged
-git commit -m "Add read-only parquet viewer"
-git push -u origin main
-```
-
-Before `git add .`, verify no private files exist in workspace.
 
 ## Troubleshooting
 

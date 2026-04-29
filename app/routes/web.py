@@ -6,6 +6,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import get_settings
 from app.core.auth import decode_session_token
+from app.services.user_store import UserStore
 
 
 router = APIRouter()
@@ -18,7 +19,10 @@ def _is_authenticated(request: Request) -> bool:
     if not token:
         return False
     payload = decode_session_token(token, settings.secret_key)
-    return bool(payload and payload.get("sub") == settings.admin_username)
+    if not payload:
+        return False
+    user_store = UserStore(settings.users_file, settings.admin_username, settings.admin_password_hash)
+    return user_store.get_user(str(payload.get("sub", ""))) is not None
 
 
 @router.get("/", response_class=HTMLResponse)

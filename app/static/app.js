@@ -1,29 +1,51 @@
 const logoutButton = document.getElementById("logoutButton");
 const logoutMenuButton = document.getElementById("logoutMenuButton");
+const changePasswordButton = document.getElementById("changePasswordButton");
+const closePasswordModalButton = document.getElementById("closePasswordModalButton");
+const passwordModal = document.getElementById("passwordModal");
+const changePasswordForm = document.getElementById("changePasswordForm");
+const passwordMessage = document.getElementById("passwordMessage");
 const schemaList = document.getElementById("schemaList");
 const fileList = document.getElementById("fileList");
 const refreshFilesButton = document.getElementById("refreshFilesButton");
 const rootPathInput = document.getElementById("rootPathInput");
 const applyRootPathButton = document.getElementById("applyRootPathButton");
+const recursiveToggle = document.getElementById("recursiveToggle");
 const refreshSchemaButton = document.getElementById("refreshSchemaButton");
 const previewButton = document.getElementById("previewButton");
 const runButton = document.getElementById("runButton");
 const queryInput = document.getElementById("queryInput");
 const resultsMeta = document.getElementById("resultsMeta");
 const resultsTable = document.getElementById("resultsTable");
+const prevPageButton = document.getElementById("prevPageButton");
+const nextPageButton = document.getElementById("nextPageButton");
+const pageInfo = document.getElementById("pageInfo");
 const activeFile = document.getElementById("activeFile");
 const userBadge = document.getElementById("userBadge");
 
 let selectedFile = null;
 let currentRootPath = rootPathInput ? rootPathInput.value.trim() : "";
+let recursiveScan = false;
+let currentPage = 1;
+let currentPageSize = 50;
+let lastQuery = "SELECT * FROM current_parquet LIMIT 25";
+let lastMode = "preview";
 
 function setStatus(message, isError = false) {
   resultsMeta.textContent = message;
   resultsMeta.className = isError ? "hint error" : "hint";
 }
 
+function closePasswordModal() {
+  passwordModal.hidden = true;
+  passwordMessage.textContent = "";
+  passwordMessage.className = "hint";
+  changePasswordForm.reset();
+}
+
 function clearDatasetState(message = "No result yet.") {
   selectedFile = null;
+  currentPage = 1;
   activeFile.textContent = "Active file: none";
   schemaList.innerHTML = `<div class="empty">No schema loaded.</div>`;
   resultsTable.innerHTML = `<div class="empty">No parquet file selected.</div>`;
@@ -35,6 +57,8 @@ function clearDatasetState(message = "No result yet.") {
 function setDatasetEnabled(enabled) {
   previewButton.disabled = !enabled;
   runButton.disabled = !enabled;
+  prevPageButton.disabled = !enabled;
+  nextPageButton.disabled = !enabled;
 }
 
 function renderTable(result) {
@@ -54,6 +78,9 @@ function renderTable(result) {
     .join("");
 
   resultsTable.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  pageInfo.textContent = `Page ${result.page} of ${result.total_pages} · ${result.total_rows} rows`;
+  prevPageButton.disabled = result.page <= 1;
+  nextPageButton.disabled = result.page >= result.total_pages;
 }
 
 function renderSchema(items) {
@@ -102,6 +129,7 @@ function renderFiles(items) {
   fileList.querySelectorAll(".file-item").forEach((button) => {
     button.addEventListener("click", async () => {
       selectedFile = button.dataset.file;
+      currentPage = 1;
       renderFiles(items);
       try {
         await refreshSchema();
@@ -141,35 +169,54 @@ async function refreshSchema() {
   const params = new URLSearchParams();
   if (selectedFile) params.set("selected_file", selectedFile);
   if (currentRootPath) params.set("root_path", currentRootPath);
+  params.set("recursive", String(recursiveScan));
   const suffix = params.toString() ? `?${params.toString()}` : "";
   const data = await api(`/api/schema${suffix}`, { method: "GET" });
   renderSchema(data.items);
 }
 
-async function runQuery(query) {
+async function runQuery(query, page = currentPage) {
   const result = await api("/api/query", {
     method: "POST",
-    body: JSON.stringify({ query, selected_file: selectedFile, root_path: currentRootPath }),
+    body: JSON.stringify({
+      query,
+      selected_file: selectedFile,
+      root_path: currentRootPath,
+      recursive: recursiveScan,
+      page,
+      page_size: currentPageSize,
+    }),
   });
+  currentPage = result.page;
+  lastQuery = query;
+  lastMode = "query";
   renderTable(result);
   setStatus(`${result.row_count} rows returned in ${result.elapsed_ms} ms.`);
 }
 
-async function loadPreview() {
+async function loadPreview(page = currentPage) {
   const params = new URLSearchParams();
   if (selectedFile) params.set("selected_file", selectedFile);
   if (currentRootPath) params.set("root_path", currentRootPath);
+  params.set("recursive", String(recursiveScan));
+  params.set("page", String(page));
+  params.set("page_size", String(currentPageSize));
   const suffix = params.toString() ? `?${params.toString()}` : "";
   const result = await api(`/api/preview${suffix}`, { method: "GET" });
+  currentPage = result.page;
+  lastMode = "preview";
   renderTable(result);
   setStatus("Preview loaded.");
 }
 
 async function refreshFiles() {
   const suffix = currentRootPath ? `?root_path=${encodeURIComponent(currentRootPath)}` : "";
-  const data = await api(`/api/files${suffix}`, { method: "GET" });
+  const recursiveSuffix = `${suffix}${suffix ? "&" : "?"}recursive=${encodeURIComponent(String(recursiveScan))}`;
+  const data = await api(`/api/files${recursiveSuffix}`, { method: "GET" });
   currentRootPath = data.root_path;
   rootPathInput.value = currentRootPath;
+  recursiveScan = Boolean(data.recursive);
+  recursiveToggle.checked = recursiveScan;
   renderFiles(data.items);
   return data.items;
 }
@@ -211,6 +258,7 @@ refreshFilesButton.addEventListener("click", async () => {
   try {
     const items = await refreshFiles();
     if (items.length) {
+      currentPage = 1;
       await refreshSchema();
       await loadPreview();
       setStatus("File list refreshed.");
@@ -222,6 +270,7 @@ refreshFilesButton.addEventListener("click", async () => {
 
 applyRootPathButton.addEventListener("click", async () => {
   currentRootPath = rootPathInput.value.trim();
+  recursiveScan = recursiveToggle.checked;
   clearDatasetState("Loading root path...");
   try {
     const items = await refreshFiles();
@@ -238,6 +287,7 @@ applyRootPathButton.addEventListener("click", async () => {
 
 previewButton.addEventListener("click", async () => {
   try {
+    currentPage = 1;
     await loadPreview();
   } catch (error) {
     setStatus(error.message, true);
@@ -246,9 +296,74 @@ previewButton.addEventListener("click", async () => {
 
 runButton.addEventListener("click", async () => {
   try {
-    await runQuery(queryInput.value);
+    currentPage = 1;
+    await runQuery(queryInput.value, 1);
   } catch (error) {
     setStatus(error.message, true);
+  }
+});
+
+prevPageButton.addEventListener("click", async () => {
+  if (currentPage <= 1) return;
+  try {
+    const nextPage = currentPage - 1;
+    if (lastMode === "preview") {
+      await loadPreview(nextPage);
+    } else {
+      await runQuery(lastQuery, nextPage);
+    }
+  } catch (error) {
+    setStatus(error.message, true);
+  }
+});
+
+nextPageButton.addEventListener("click", async () => {
+  try {
+    const nextPage = currentPage + 1;
+    if (lastMode === "preview") {
+      await loadPreview(nextPage);
+    } else {
+      await runQuery(lastQuery, nextPage);
+    }
+  } catch (error) {
+    setStatus(error.message, true);
+  }
+});
+
+changePasswordButton.addEventListener("click", () => {
+  passwordModal.hidden = false;
+  passwordMessage.textContent = "";
+  passwordMessage.className = "hint";
+});
+
+closePasswordModalButton.addEventListener("click", () => {
+  closePasswordModal();
+});
+
+passwordModal.addEventListener("click", (event) => {
+  if (event.target === passwordModal) {
+    closePasswordModal();
+  }
+});
+
+changePasswordForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await api("/api/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({
+        current_password: document.getElementById("currentPasswordInput").value,
+        new_password: document.getElementById("newPasswordInput").value,
+      }),
+    });
+    passwordMessage.textContent = "Password updated.";
+    passwordMessage.className = "hint";
+    setTimeout(() => {
+      closePasswordModal();
+    }, 250);
+  } catch (error) {
+    passwordMessage.textContent = error.message;
+    passwordMessage.className = "hint error";
   }
 });
 

@@ -60,23 +60,41 @@ button {
   color: var(--text);
   padding: 3rem 1.15rem 2rem;
   border-right: 1px solid var(--border);
+  overflow: hidden;
 }
 
 .brand-mark {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
+  display: grid;
+  justify-items: start;
 }
 
-.brand-circle {
-  width: 2.35rem;
-  height: 2.35rem;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 1.35rem;
+.loginLogo {
+  width: 214px;
+  height: 62px;
+  object-fit: contain;
+  object-position: left center;
+  justify-self: start;
+  margin-bottom: 0.75rem;
+}
+
+.logo {
+  display: block;
+  width: 100%;
+  max-width: 214px;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: inherit;
+}
+
+.brand-logo {
+  width: 214px;
+  height: 62px;
+  object-fit: contain;
+  object-position: left center;
+  max-width: 100%;
+  display: block;
 }
 
 .brand-text {
@@ -152,7 +170,7 @@ button {
 
 .content-view {
   display: grid;
-  gap: 1.45rem;
+  gap: 2px;
 }
 
 .topbar,
@@ -241,12 +259,16 @@ label span,
   padding: 1.45rem;
 }
 
+.topbar {
+  margin-bottom: 5px;
+}
+
+.control-grid,
 .simple-output {
   padding-top: 1rem;
 }
 
-.control-grid,
-.result-layout {
+.control-grid {
   display: grid;
   gap: 1rem;
   margin-top: 1rem;
@@ -254,10 +276,6 @@ label span,
 
 .control-grid {
   grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-}
-
-.result-layout {
-  grid-template-columns: 280px minmax(0, 1fr);
 }
 
 .panel-box {
@@ -318,16 +336,45 @@ button:disabled {
   gap: 0.6rem;
 }
 
-.stats {
-  display: grid;
-  gap: 0.85rem;
-  margin-top: 1rem;
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
 }
 
-.stats-row {
+.toggle-row input {
+  width: auto;
+}
+
+.pagination-row {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 35, 58, 0.32);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.modal-backdrop[hidden] {
+  display: none;
+}
+
+.modal-card {
+  width: min(460px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 1.2rem;
 }
 
 .file-list,
@@ -441,8 +488,7 @@ td {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .control-grid,
-  .result-layout {
+  .control-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -467,4 +513,5 @@ td {
   .path-row {
     grid-template-columns: 1fr;
   }
+
 }

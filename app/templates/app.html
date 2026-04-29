@@ -10,9 +10,8 @@
     <div class="app-shell">
       <aside class="side-nav">
         <div class="brand-block">
-          <div class="brand-mark">
-            <span class="brand-circle">P</span>
-            <span class="brand-text">Parquet Viewer</span>
+          <div class="brand-mark logo">
+            <img src="/static/logo.png" alt="Parquet Viewer logo" class="brand-logo" />
           </div>
           <div class="brand-subtitle">READ-ONLY QUERY WORKSPACE</div>
         </div>
@@ -32,6 +31,7 @@
           <div class="user-actions">
             <div id="userBadge" class="top-chip">admin</div>
             <div class="top-chip read-chip">Read-only mode</div>
+            <button id="changePasswordButton" class="top-chip" type="button">Change Password</button>
             <button id="logoutButton" class="top-chip danger-chip" type="button">Logout</button>
           </div>
         </header>
@@ -59,6 +59,11 @@
                   <input id="rootPathInput" type="text" value="{{ parquet_root }}" />
                   <button id="applyRootPathButton" class="outline-button" type="button">Load</button>
                 </div>
+              </label>
+
+              <label class="toggle-row">
+                <input id="recursiveToggle" type="checkbox" />
+                <span>Include subfolders</span>
               </label>
 
               <div class="hint">Pick folder containing parquet files. Viewing only, no writes.</div>
@@ -103,9 +108,38 @@
 
         <section class="board-card simple-output">
           <div id="resultsMeta" class="hint">No result yet.</div>
+          <div class="pagination-row">
+            <button id="prevPageButton" class="outline-button" type="button">Previous</button>
+            <div id="pageInfo" class="hint">Page 1</div>
+            <button id="nextPageButton" class="outline-button" type="button">Next</button>
+          </div>
           <div id="resultsTable" class="table-wrap empty"></div>
         </section>
       </main>
+    </div>
+
+    <div id="passwordModal" class="modal-backdrop" hidden>
+      <div class="modal-card">
+        <div class="panel-head">
+          <div>
+            <div class="section-kicker">Account</div>
+            <h3>Change Password</h3>
+          </div>
+          <button id="closePasswordModalButton" class="outline-button" type="button">Close</button>
+        </div>
+        <form id="changePasswordForm" class="stack">
+          <label>
+            <span>Current password</span>
+            <input id="currentPasswordInput" type="password" required />
+          </label>
+          <label>
+            <span>New password</span>
+            <input id="newPasswordInput" type="password" minlength="8" required />
+          </label>
+          <button class="primary-button" type="submit">Update Password</button>
+          <p id="passwordMessage" class="hint"></p>
+        </form>
+      </div>
     </div>
 
     <script src="/static/app.js"></script>
