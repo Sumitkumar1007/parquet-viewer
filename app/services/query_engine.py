@@ -12,6 +12,7 @@ from typing import Any, Optional
 import duckdb
 
 
+ALL_FILES_TOKEN = "__ALL_PARQUET_FILES__"
 ALLOWED_PREFIXES = ("select", "with", "describe", "show", "explain")
 BLOCKED_TOKENS = (
     "insert",
@@ -128,27 +129,23 @@ class QueryEngine:
         root_path: Optional[str] = None,
         recursive: Optional[bool] = None,
     ) -> Any:
+        scan_recursive = self._resolve_recursive(recursive)
         if root_path and self._is_hdfs_uri(root_path):
             root_uri = str(self.resolve_root(root_path))
-            if not selected_file:
-                items = self._list_hdfs_files(root_uri, self._resolve_recursive(recursive))
+            if not selected_file or selected_file == ALL_FILES_TOKEN:
+                items = self._list_hdfs_files(root_uri, scan_recursive)
                 if items:
-                    return self._join_hdfs_path(root_uri, items[0]["relative_path"])
+                    return {"kind": "hdfs-folder", "root_uri": root_uri, "recursive": scan_recursive}
                 raise FileNotFoundError(f"No parquet files found under {root_uri}.")
             if not str(selected_file).lower().endswith(".parquet"):
                 raise QueryValidationError("Only .parquet files allowed.")
             return self._join_hdfs_path(root_uri, selected_file)
 
         base_root = self.resolve_root(root_path)
-        if not selected_file:
-            default_path = self.parquet_path
-            if default_path.exists() and default_path.parent == base_root:
-                return self.ensure_ready(default_path)
-            files = sorted(
-                base_root.rglob("*.parquet") if self._resolve_recursive(recursive) else base_root.glob("*.parquet")
-            )
+        if not selected_file or selected_file == ALL_FILES_TOKEN:
+            files = sorted(base_root.rglob("*.parquet") if scan_recursive else base_root.glob("*.parquet"))
             if files:
-                return self.ensure_ready(files[0])
+                return {"kind": "local-folder", "root": str(base_root), "recursive": scan_recursive}
             raise FileNotFoundError(f"No parquet files found under {base_root}.")
 
         candidate = (base_root / selected_file).resolve()
@@ -259,6 +256,23 @@ class QueryEngine:
         return {"filename": safe_name, "stored_path": str(final_path.resolve())}
 
     def _register_table(self, conn: duckdb.DuckDBPyConnection, parquet_path: Any) -> None:
+        if isinstance(parquet_path, dict):
+            dataset_kind = parquet_path.get("kind")
+            if dataset_kind == "local-folder":
+                self._register_local_folder(
+                    conn,
+                    Path(str(parquet_path["root"])),
+                    bool(parquet_path.get("recursive", False)),
+                )
+                return
+            if dataset_kind == "hdfs-folder":
+                self._register_hdfs_folder(
+                    conn,
+                    str(parquet_path["root_uri"]),
+                    bool(parquet_path.get("recursive", False)),
+                )
+                return
+
         parquet_reference = str(parquet_path)
         if self._is_hdfs_uri(parquet_reference):
             parquet_reference = self._copy_hdfs_parquet_to_local(parquet_reference)
@@ -268,6 +282,32 @@ class QueryEngine:
             safe_path = str(parquet_reference).replace("'", "''")
         conn.execute(
             f"CREATE OR REPLACE VIEW current_parquet AS SELECT * FROM read_parquet('{safe_path}')"
+        )
+
+    def _register_local_folder(
+        self,
+        conn: duckdb.DuckDBPyConnection,
+        base_root: Path,
+        recursive: bool,
+    ) -> None:
+        files = sorted(base_root.rglob("*.parquet") if recursive else base_root.glob("*.parquet"))
+        if not files:
+            raise FileNotFoundError(f"No parquet files found under {base_root}.")
+        parquet_list = ", ".join(self._quote_sql_string(str(path)) for path in files)
+        conn.execute(
+            f"CREATE OR REPLACE VIEW current_parquet AS SELECT * FROM read_parquet([{parquet_list}])"
+        )
+
+    def _register_hdfs_folder(
+        self,
+        conn: duckdb.DuckDBPyConnection,
+        root_uri: str,
+        recursive: bool,
+    ) -> None:
+        local_files = self._copy_hdfs_folder_to_local(root_uri, recursive)
+        parquet_list = ", ".join(self._quote_sql_string(path) for path in local_files)
+        conn.execute(
+            f"CREATE OR REPLACE VIEW current_parquet AS SELECT * FROM read_parquet([{parquet_list}])"
         )
 
     def _normalize_query(self, raw_query: str) -> str:
@@ -349,3 +389,36 @@ class QueryEngine:
         except subprocess.CalledProcessError as exc:
             raise QueryValidationError(exc.stderr.strip() or "Unable to read parquet file from HDFS.") from exc
         return str(cache_path)
+
+    def _copy_hdfs_folder_to_local(self, root_uri: str, recursive: bool) -> list[str]:
+        items = self._list_hdfs_files(root_uri, recursive)
+        if not items:
+            raise FileNotFoundError(f"No parquet files found under {root_uri}.")
+
+        cache_root = Path(tempfile.gettempdir()) / "parquet_viewer_hdfs_cache" / hashlib.sha256(
+            f"{root_uri}|{recursive}".encode("utf-8")
+        ).hexdigest()
+        cache_root.mkdir(parents=True, exist_ok=True)
+
+        local_files: list[str] = []
+        for item in items:
+            relative_path = str(item["relative_path"])
+            file_uri = str(item["absolute_path"])
+            local_name = f"{hashlib.sha256(relative_path.encode('utf-8')).hexdigest()}.parquet"
+            local_path = cache_root / local_name
+            try:
+                subprocess.run(
+                    ["hdfs", "dfs", "-copyToLocal", "-f", file_uri, str(local_path)],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+            except subprocess.CalledProcessError as exc:
+                raise QueryValidationError(
+                    exc.stderr.strip() or f"Unable to read parquet file from HDFS: {relative_path}."
+                ) from exc
+            local_files.append(str(local_path))
+        return local_files
+
+    def _quote_sql_string(self, value: str) -> str:
+        return "'" + value.replace("'", "''") + "'"

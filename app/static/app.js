@@ -25,6 +25,7 @@ const appShell = document.querySelector(".app-shell");
 const sidebarToggleButton = document.getElementById("sidebarToggleButton");
 
 const SIDEBAR_STORAGE_KEY = "pqv-sidebar-collapsed";
+const ALL_FILES_TOKEN = "__ALL_PARQUET_FILES__";
 
 let selectedFile = null;
 let currentRootPath = rootPathInput ? rootPathInput.value.trim() : "";
@@ -71,7 +72,7 @@ function closePasswordModal() {
 function clearDatasetState(message = "No result yet.") {
   selectedFile = null;
   currentPage = 1;
-  activeFile.textContent = "Active file: none";
+  activeFile.textContent = "Active dataset: none";
   schemaList.innerHTML = `<div class="empty">No schema loaded.</div>`;
   resultsTable.innerHTML = `<div class="empty">No parquet file selected.</div>`;
   previewButton.disabled = true;
@@ -128,13 +129,28 @@ function renderFiles(items) {
     return;
   }
 
-  if (!selectedFile || !items.some((item) => item.relative_path === selectedFile)) {
-    selectedFile = items[0].relative_path;
+  if (
+    !selectedFile ||
+    (selectedFile !== ALL_FILES_TOKEN && !items.some((item) => item.relative_path === selectedFile))
+  ) {
+    selectedFile = ALL_FILES_TOKEN;
   }
 
   setDatasetEnabled(true);
 
-  fileList.innerHTML = items
+  const displayItems = [
+    {
+      name: "All parquet files",
+      relative_path: ALL_FILES_TOKEN,
+      description: "Query the complete selected folder dataset.",
+    },
+    ...items.map((item) => ({
+      ...item,
+      description: item.relative_path,
+    })),
+  ];
+
+  fileList.innerHTML = displayItems
     .map(
       (item) => `
         <button
@@ -143,13 +159,16 @@ function renderFiles(items) {
           data-file="${item.relative_path}"
         >
           ${escapeHtml(item.name)}
-          <small>${escapeHtml(item.relative_path)}</small>
+          <small>${escapeHtml(item.description)}</small>
         </button>
       `,
     )
     .join("");
 
-  activeFile.textContent = `Active file: ${selectedFile}`;
+  activeFile.textContent =
+    selectedFile === ALL_FILES_TOKEN
+      ? "Active dataset: all parquet files in selected root"
+      : `Active dataset: ${selectedFile}`;
 
   fileList.querySelectorAll(".file-item").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -248,6 +267,7 @@ async function refreshFiles() {
 async function bootstrap() {
   try {
     applySidebarState(loadSidebarState());
+    recursiveScan = true;
     const me = await api("/api/auth/me", { method: "GET" });
     userBadge.textContent = me.username;
     const items = await refreshFiles();
@@ -301,7 +321,7 @@ refreshFilesButton.addEventListener("click", async () => {
 
 applyRootPathButton.addEventListener("click", async () => {
   currentRootPath = rootPathInput.value.trim();
-  recursiveScan = false;
+  recursiveScan = true;
   clearDatasetState("Loading root path...");
   try {
     const items = await refreshFiles();
