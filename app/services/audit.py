@@ -1,19 +1,25 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 
 class AuditLogger:
     def __init__(self, log_path: Path) -> None:
         self.log_path = log_path
 
-    def log(self, action: str, username: str | None, ip_address: str | None, details: dict[str, Any]) -> None:
+    def log(
+        self,
+        action: str,
+        username: Optional[str],
+        ip_address: Optional[str],
+        details: dict[str, Any],
+    ) -> None:
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         event = {
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "action": action,
             "username": username,
             "ip_address": ip_address,

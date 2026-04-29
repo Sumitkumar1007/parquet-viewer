@@ -4,6 +4,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from shutil import move
+from typing import Optional
 
 import duckdb
 
@@ -64,7 +65,7 @@ class QueryEngine:
         self.max_upload_mb = max_upload_mb
         self.allow_recursive_scan = allow_recursive_scan
 
-    def ensure_ready(self, parquet_path: Path | None = None) -> Path:
+    def ensure_ready(self, parquet_path: Optional[Path] = None) -> Path:
         target_path = parquet_path or self.parquet_path
         if not target_path.exists():
             raise FileNotFoundError(
@@ -73,7 +74,11 @@ class QueryEngine:
             )
         return target_path
 
-    def list_files(self, root_path: str | None = None, recursive: bool | None = None) -> dict[str, object]:
+    def list_files(
+        self,
+        root_path: Optional[str] = None,
+        recursive: Optional[bool] = None,
+    ) -> dict[str, object]:
         resolved_root = self.resolve_root(root_path)
         resolved_root.mkdir(parents=True, exist_ok=True)
         scan_recursive = self._resolve_recursive(recursive)
@@ -88,7 +93,7 @@ class QueryEngine:
         ]
         return {"root_path": str(resolved_root), "items": items, "recursive": scan_recursive}
 
-    def resolve_root(self, root_path: str | None = None) -> Path:
+    def resolve_root(self, root_path: Optional[str] = None) -> Path:
         candidate = Path(root_path).expanduser().resolve() if root_path else self.parquet_root.resolve()
         if candidate.exists() and not candidate.is_dir():
             raise QueryValidationError("Root path must be directory.")
@@ -96,9 +101,9 @@ class QueryEngine:
 
     def resolve_path(
         self,
-        selected_file: str | None,
-        root_path: str | None = None,
-        recursive: bool | None = None,
+        selected_file: Optional[str],
+        root_path: Optional[str] = None,
+        recursive: Optional[bool] = None,
     ) -> Path:
         base_root = self.resolve_root(root_path)
         if not selected_file:
@@ -121,9 +126,9 @@ class QueryEngine:
 
     def describe_schema(
         self,
-        selected_file: str | None = None,
-        root_path: str | None = None,
-        recursive: bool | None = None,
+        selected_file: Optional[str] = None,
+        root_path: Optional[str] = None,
+        recursive: Optional[bool] = None,
     ) -> list[dict[str, object]]:
         parquet_path = self.resolve_path(selected_file, root_path, recursive)
         with duckdb.connect(database=":memory:") as conn:
@@ -136,11 +141,11 @@ class QueryEngine:
 
     def preview(
         self,
-        selected_file: str | None = None,
-        root_path: str | None = None,
-        recursive: bool | None = None,
+        selected_file: Optional[str] = None,
+        root_path: Optional[str] = None,
+        recursive: Optional[bool] = None,
         page: int = 1,
-        page_size: int | None = None,
+        page_size: Optional[int] = None,
     ) -> QueryResult:
         return self.run_query(
             f"SELECT * FROM current_parquet LIMIT {self.max_preview_rows}",
@@ -154,11 +159,11 @@ class QueryEngine:
     def run_query(
         self,
         raw_query: str,
-        selected_file: str | None = None,
-        root_path: str | None = None,
-        recursive: bool | None = None,
+        selected_file: Optional[str] = None,
+        root_path: Optional[str] = None,
+        recursive: Optional[bool] = None,
         page: int = 1,
-        page_size: int | None = None,
+        page_size: Optional[int] = None,
     ) -> QueryResult:
         parquet_path = self.resolve_path(selected_file, root_path, recursive)
         query = self._normalize_query(raw_query)
@@ -189,7 +194,12 @@ class QueryEngine:
             query=query,
         )
 
-    def upload_parquet(self, destination_root: str | None, filename: str, payload: bytes) -> dict[str, str]:
+    def upload_parquet(
+        self,
+        destination_root: Optional[str],
+        filename: str,
+        payload: bytes,
+    ) -> dict[str, str]:
         root = self.resolve_root(destination_root)
         root.mkdir(parents=True, exist_ok=True)
         safe_name = Path(filename).name
@@ -237,5 +247,5 @@ class QueryEngine:
                 raise QueryValidationError(f"Blocked keyword detected: {token.upper()}.")
         return query
 
-    def _resolve_recursive(self, recursive: bool | None) -> bool:
+    def _resolve_recursive(self, recursive: Optional[bool]) -> bool:
         return self.allow_recursive_scan if recursive is None else recursive

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 from pydantic import BaseModel, Field
+from typing import Optional
 
 from app.config import Settings, get_settings
 from app.core.auth import create_session_token, decode_session_token
@@ -20,11 +21,11 @@ class LoginPayload(BaseModel):
 
 class QueryPayload(BaseModel):
     query: str = Field(min_length=1)
-    selected_file: str | None = None
-    root_path: str | None = None
-    recursive: bool | None = None
+    selected_file: Optional[str] = None
+    root_path: Optional[str] = None
+    recursive: Optional[bool] = None
     page: int = Field(default=1, ge=1)
-    page_size: int | None = Field(default=None, ge=1)
+    page_size: Optional[int] = Field(default=None, ge=1)
 
 
 class PasswordChangePayload(BaseModel):
@@ -142,9 +143,9 @@ def change_password(
 
 @router.get("/schema")
 def schema(
-    selected_file: str | None = None,
-    root_path: str | None = None,
-    recursive: bool | None = None,
+    selected_file: Optional[str] = None,
+    root_path: Optional[str] = None,
+    recursive: Optional[bool] = None,
     _: UserRecord = Depends(require_user),
     engine: QueryEngine = Depends(get_query_engine),
 ) -> dict[str, object]:
@@ -163,8 +164,8 @@ def schema(
 
 @router.get("/files")
 def files(
-    root_path: str | None = None,
-    recursive: bool | None = None,
+    root_path: Optional[str] = None,
+    recursive: Optional[bool] = None,
     _: UserRecord = Depends(require_user),
     engine: QueryEngine = Depends(get_query_engine),
 ) -> dict[str, object]:
@@ -177,7 +178,7 @@ def files(
 @router.post("/upload")
 async def upload(
     request: Request,
-    root_path: str | None = None,
+    root_path: Optional[str] = None,
     file: UploadFile = File(...),
     user: UserRecord = Depends(require_user),
     engine: QueryEngine = Depends(get_query_engine),
@@ -199,11 +200,11 @@ async def upload(
 
 @router.get("/preview")
 def preview(
-    selected_file: str | None = None,
-    root_path: str | None = None,
-    recursive: bool | None = None,
+    selected_file: Optional[str] = None,
+    root_path: Optional[str] = None,
+    recursive: Optional[bool] = None,
     page: int = 1,
-    page_size: int | None = None,
+    page_size: Optional[int] = None,
     _: UserRecord = Depends(require_user),
     engine: QueryEngine = Depends(get_query_engine),
 ) -> dict[str, object]:

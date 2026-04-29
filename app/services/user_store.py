@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 from app.core.auth import hash_password, verify_password
 
@@ -21,7 +22,7 @@ class UserStore:
         self.admin_username = admin_username
         self.admin_password_hash = admin_password_hash
 
-    def authenticate(self, username: str, password: str) -> UserRecord | None:
+    def authenticate(self, username: str, password: str) -> Optional[UserRecord]:
         user = self.get_user(username)
         if not user or user.disabled:
             return None
@@ -29,7 +30,7 @@ class UserStore:
             return None
         return user
 
-    def get_user(self, username: str) -> UserRecord | None:
+    def get_user(self, username: str) -> Optional[UserRecord]:
         for user in self._load_users():
             if user.username == username:
                 return user

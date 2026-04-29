@@ -6,8 +6,8 @@ import hmac
 import json
 import os
 import secrets
-from datetime import UTC, datetime, timedelta
-from typing import Any
+from datetime import datetime, timedelta, timezone
+from typing import Any, Optional
 
 
 PBKDF2_ITERATIONS = 600_000
@@ -59,7 +59,7 @@ def _sign(secret_key: str, payload: bytes) -> str:
 
 
 def create_session_token(username: str, secret_key: str, ttl_minutes: int) -> str:
-    expires_at = datetime.now(UTC) + timedelta(minutes=ttl_minutes)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=ttl_minutes)
     payload = {
         "sub": username,
         "exp": int(expires_at.timestamp()),
@@ -71,7 +71,7 @@ def create_session_token(username: str, secret_key: str, ttl_minutes: int) -> st
     return f"{payload_b64}.{signature}"
 
 
-def decode_session_token(token: str, secret_key: str) -> dict[str, Any] | None:
+def decode_session_token(token: str, secret_key: str) -> Optional[dict[str, Any]]:
     try:
         payload_b64, signature = token.split(".", 1)
     except ValueError:
@@ -90,7 +90,7 @@ def decode_session_token(token: str, secret_key: str) -> dict[str, Any] | None:
     if not isinstance(expires_at, int):
         return None
 
-    if datetime.now(UTC).timestamp() >= expires_at:
+    if datetime.now(timezone.utc).timestamp() >= expires_at:
         return None
 
     return payload
