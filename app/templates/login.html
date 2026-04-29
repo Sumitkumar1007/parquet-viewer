@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ app_name }} Login</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body class="login-body">
+    <section class="login-view standalone-login">
+      <div class="login-card">
+        <p class="eyebrow">Read-only parquet analytics</p>
+        <h1>{{ app_name }}</h1>
+        <p class="login-copy">
+          Sign in to browse parquet files and run read-only SQL queries.
+        </p>
+
+        <form id="loginForm" class="stack">
+          <label>
+            <span>Username</span>
+            <input id="username" name="username" type="text" autocomplete="username" required />
+          </label>
+          <label>
+            <span>Password</span>
+            <input id="password" name="password" type="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit" class="primary-button">Login</button>
+          <p id="authMessage" class="hint"></p>
+        </form>
+      </div>
+    </section>
+
+    <script src="/static/login.js"></script>
+  </body>
+</html>

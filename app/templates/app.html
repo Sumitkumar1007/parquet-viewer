@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ app_name }}</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="side-nav">
+        <div class="brand-block">
+          <div class="brand-mark">
+            <span class="brand-circle">P</span>
+            <span class="brand-text">Parquet Viewer</span>
+          </div>
+          <div class="brand-subtitle">READ-ONLY QUERY WORKSPACE</div>
+        </div>
+
+        <nav class="nav-links">
+          <button class="nav-item active" type="button">Query</button>
+          <button id="logoutMenuButton" class="nav-item" type="button">Logout</button>
+        </nav>
+      </aside>
+
+      <main class="main-shell">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Read-only parquet analytics</p>
+            <h1>Parquet Explorer</h1>
+          </div>
+          <div class="user-actions">
+            <div id="userBadge" class="top-chip">admin</div>
+            <div class="top-chip read-chip">Read-only mode</div>
+            <button id="logoutButton" class="top-chip danger-chip" type="button">Logout</button>
+          </div>
+        </header>
+
+        <section class="board-card">
+          <div class="section-kicker">Dataset browser</div>
+          <div class="section-title-row">
+            <h2>Parquet Files</h2>
+            <div id="activeFile" class="active-file">Active file: {{ parquet_path }}</div>
+          </div>
+
+          <div class="control-grid">
+            <article class="panel-box">
+              <div class="panel-head">
+                <div>
+                  <div class="section-kicker">Folder browser</div>
+                  <h3>Root path</h3>
+                </div>
+                <button id="refreshFilesButton" class="outline-button" type="button">Refresh</button>
+              </div>
+
+              <label>
+                <span>Root path</span>
+                <div class="path-row">
+                  <input id="rootPathInput" type="text" value="{{ parquet_root }}" />
+                  <button id="applyRootPathButton" class="outline-button" type="button">Load</button>
+                </div>
+              </label>
+
+              <div class="hint">Pick folder containing parquet files. Viewing only, no writes.</div>
+              <div id="fileList" class="file-list"></div>
+            </article>
+
+            <article class="panel-box">
+              <div class="panel-head">
+                <div>
+                  <div class="section-kicker">Metadata</div>
+                  <h3>Schema</h3>
+                </div>
+                <button id="refreshSchemaButton" class="outline-button" type="button">Refresh</button>
+              </div>
+              <div id="schemaList" class="schema-list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="board-card">
+          <div class="section-kicker">SQL console</div>
+          <div class="section-title-row">
+            <h2>Read-Only Query Console</h2>
+            <div class="action-row">
+              <button id="previewButton" class="outline-button" type="button">Preview</button>
+              <button id="runButton" class="primary-button" type="button">Run Query</button>
+            </div>
+          </div>
+
+          <div class="readonly-banner">
+            Allowed only: <code>SELECT</code>, <code>WITH</code>, <code>SHOW</code>, <code>DESCRIBE</code>, <code>EXPLAIN</code>
+          </div>
+
+          <textarea id="queryInput" spellcheck="false">SELECT * FROM current_parquet LIMIT 25</textarea>
+
+          <div class="examples">
+            <button class="chip" data-query="SELECT * FROM current_parquet LIMIT 25">Sample rows</button>
+            <button class="chip" data-query="DESCRIBE current_parquet">Describe schema</button>
+            <button class="chip" data-query="SELECT * FROM current_parquet ORDER BY 1 DESC LIMIT 20">Latest slice</button>
+          </div>
+        </section>
+
+        <section class="board-card simple-output">
+          <div id="resultsMeta" class="hint">No result yet.</div>
+          <div id="resultsTable" class="table-wrap empty"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
