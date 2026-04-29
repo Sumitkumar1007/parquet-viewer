@@ -20,13 +20,22 @@
           <button class="nav-item active" type="button">Query</button>
           <button id="logoutMenuButton" class="nav-item" type="button">Logout</button>
         </nav>
+
+        <div class="side-nav-footer">
+          <button id="sidebarToggleButton" class="sidebar-toggle sidebar-toggle-bottom" type="button" aria-label="Collapse menu" aria-expanded="true">
+            <span class="toggle-chevron toggle-chevron-top"></span>
+            <span class="toggle-chevron toggle-chevron-bottom"></span>
+          </button>
+        </div>
       </aside>
 
       <main class="main-shell">
         <header class="topbar">
-          <div>
+          <div class="topbar-title">
+            <div>
             <p class="eyebrow">Read-only parquet analytics</p>
             <h1>Parquet Explorer</h1>
+            </div>
           </div>
           <div class="user-actions">
             <div id="userBadge" class="top-chip">admin</div>
@@ -39,7 +48,6 @@
         <section class="board-card">
           <div class="section-kicker">Dataset browser</div>
           <div class="section-title-row">
-            <h2>Parquet Files</h2>
             <div id="activeFile" class="active-file">Active file: {{ parquet_path }}</div>
           </div>
 
@@ -59,11 +67,6 @@
                   <input id="rootPathInput" type="text" value="{{ parquet_root }}" />
                   <button id="applyRootPathButton" class="outline-button" type="button">Load</button>
                 </div>
-              </label>
-
-              <label class="toggle-row">
-                <input id="recursiveToggle" type="checkbox" />
-                <span>Include subfolders</span>
               </label>
 
               <div class="hint">Pick folder containing parquet files. Viewing only, no writes.</div>

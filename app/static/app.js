@@ -10,7 +10,6 @@ const fileList = document.getElementById("fileList");
 const refreshFilesButton = document.getElementById("refreshFilesButton");
 const rootPathInput = document.getElementById("rootPathInput");
 const applyRootPathButton = document.getElementById("applyRootPathButton");
-const recursiveToggle = document.getElementById("recursiveToggle");
 const refreshSchemaButton = document.getElementById("refreshSchemaButton");
 const previewButton = document.getElementById("previewButton");
 const runButton = document.getElementById("runButton");
@@ -22,6 +21,10 @@ const nextPageButton = document.getElementById("nextPageButton");
 const pageInfo = document.getElementById("pageInfo");
 const activeFile = document.getElementById("activeFile");
 const userBadge = document.getElementById("userBadge");
+const appShell = document.querySelector(".app-shell");
+const sidebarToggleButton = document.getElementById("sidebarToggleButton");
+
+const SIDEBAR_STORAGE_KEY = "pqv-sidebar-collapsed";
 
 let selectedFile = null;
 let currentRootPath = rootPathInput ? rootPathInput.value.trim() : "";
@@ -30,6 +33,28 @@ let currentPage = 1;
 let currentPageSize = 50;
 let lastQuery = "SELECT * FROM current_parquet LIMIT 25";
 let lastMode = "preview";
+
+function applySidebarState(collapsed) {
+  if (!appShell || !sidebarToggleButton) return;
+  appShell.classList.toggle("sidebar-collapsed", collapsed);
+  sidebarToggleButton.setAttribute("aria-expanded", String(!collapsed));
+}
+
+function loadSidebarState() {
+  try {
+    return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function saveSidebarState(collapsed) {
+  try {
+    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(collapsed));
+  } catch {
+    // Ignore storage failures.
+  }
+}
 
 function setStatus(message, isError = false) {
   resultsMeta.textContent = message;
@@ -216,13 +241,13 @@ async function refreshFiles() {
   currentRootPath = data.root_path;
   rootPathInput.value = currentRootPath;
   recursiveScan = Boolean(data.recursive);
-  recursiveToggle.checked = recursiveScan;
   renderFiles(data.items);
   return data.items;
 }
 
 async function bootstrap() {
   try {
+    applySidebarState(loadSidebarState());
     const me = await api("/api/auth/me", { method: "GET" });
     userBadge.textContent = me.username;
     const items = await refreshFiles();
@@ -234,6 +259,12 @@ async function bootstrap() {
     window.location.href = "/login";
   }
 }
+
+sidebarToggleButton?.addEventListener("click", () => {
+  const collapsed = !appShell.classList.contains("sidebar-collapsed");
+  applySidebarState(collapsed);
+  saveSidebarState(collapsed);
+});
 
 logoutButton.addEventListener("click", async () => {
   await api("/api/auth/logout", { method: "POST", body: "{}" });
@@ -270,7 +301,7 @@ refreshFilesButton.addEventListener("click", async () => {
 
 applyRootPathButton.addEventListener("click", async () => {
   currentRootPath = rootPathInput.value.trim();
-  recursiveScan = recursiveToggle.checked;
+  recursiveScan = false;
   clearDatasetState("Loading root path...");
   try {
     const items = await refreshFiles();
