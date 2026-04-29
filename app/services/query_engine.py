@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from shutil import move
-from typing import Optional
+from typing import Any, Optional
 
 import duckdb
 
@@ -74,14 +74,28 @@ class QueryEngine:
             )
         return target_path
 
+    def ensure_hdfs_dependency(self) -> None:
+        try:
+            import pyarrow.fs  # noqa: F401
+            import pyarrow.parquet  # noqa: F401
+        except ImportError as exc:  # pragma: no cover - dependency driven
+            raise QueryValidationError(
+                "HDFS support requires pyarrow. Install requirements and ensure HDFS client libraries are configured."
+            ) from exc
+
     def list_files(
         self,
         root_path: Optional[str] = None,
         recursive: Optional[bool] = None,
     ) -> dict[str, object]:
+        scan_recursive = self._resolve_recursive(recursive)
+        if self._is_hdfs_uri(root_path):
+            resolved_root = self.resolve_root(root_path)
+            items = self._list_hdfs_files(str(resolved_root), scan_recursive)
+            return {"root_path": str(resolved_root), "items": items, "recursive": scan_recursive}
+
         resolved_root = self.resolve_root(root_path)
         resolved_root.mkdir(parents=True, exist_ok=True)
-        scan_recursive = self._resolve_recursive(recursive)
         files = sorted(resolved_root.rglob("*.parquet") if scan_recursive else resolved_root.glob("*.parquet"))
         items = [
             {
@@ -93,7 +107,9 @@ class QueryEngine:
         ]
         return {"root_path": str(resolved_root), "items": items, "recursive": scan_recursive}
 
-    def resolve_root(self, root_path: Optional[str] = None) -> Path:
+    def resolve_root(self, root_path: Optional[str] = None) -> Any:
+        if root_path and self._is_hdfs_uri(root_path):
+            return root_path.rstrip("/")
         candidate = Path(root_path).expanduser().resolve() if root_path else self.parquet_root.resolve()
         if candidate.exists() and not candidate.is_dir():
             raise QueryValidationError("Root path must be directory.")
@@ -104,7 +120,18 @@ class QueryEngine:
         selected_file: Optional[str],
         root_path: Optional[str] = None,
         recursive: Optional[bool] = None,
-    ) -> Path:
+    ) -> Any:
+        if root_path and self._is_hdfs_uri(root_path):
+            root_uri = str(self.resolve_root(root_path))
+            if not selected_file:
+                items = self._list_hdfs_files(root_uri, self._resolve_recursive(recursive))
+                if items:
+                    return self._join_hdfs_path(root_uri, items[0]["relative_path"])
+                raise FileNotFoundError(f"No parquet files found under {root_uri}.")
+            if not str(selected_file).lower().endswith(".parquet"):
+                raise QueryValidationError("Only .parquet files allowed.")
+            return self._join_hdfs_path(root_uri, selected_file)
+
         base_root = self.resolve_root(root_path)
         if not selected_file:
             default_path = self.parquet_path
@@ -224,7 +251,14 @@ class QueryEngine:
         move(str(temp_path), str(final_path))
         return {"filename": safe_name, "stored_path": str(final_path.resolve())}
 
-    def _register_table(self, conn: duckdb.DuckDBPyConnection, parquet_path: Path) -> None:
+    def _register_table(self, conn: duckdb.DuckDBPyConnection, parquet_path: Any) -> None:
+        parquet_reference = str(parquet_path)
+        if self._is_hdfs_uri(parquet_reference):
+            arrow_table = self._read_hdfs_parquet(parquet_reference)
+            conn.register("current_parquet_arrow", arrow_table)
+            conn.execute("CREATE OR REPLACE VIEW current_parquet AS SELECT * FROM current_parquet_arrow")
+            return
+
         safe_path = str(parquet_path).replace("'", "''")
         conn.execute(
             f"CREATE OR REPLACE VIEW current_parquet AS SELECT * FROM read_parquet('{safe_path}')"
@@ -249,3 +283,39 @@ class QueryEngine:
 
     def _resolve_recursive(self, recursive: Optional[bool]) -> bool:
         return self.allow_recursive_scan if recursive is None else recursive
+
+    def _is_hdfs_uri(self, value: Optional[str]) -> bool:
+        return bool(value and str(value).startswith("hdfs://"))
+
+    def _list_hdfs_files(self, root_uri: str, recursive: bool) -> list[dict[str, str]]:
+        self.ensure_hdfs_dependency()
+        import pyarrow.fs as pafs
+
+        filesystem, path = pafs.FileSystem.from_uri(root_uri)
+        selector = pafs.FileSelector(path, recursive=recursive)
+        file_infos = filesystem.get_file_info(selector)
+        base_path = path.rstrip("/")
+        items = []
+        for item in file_infos:
+            if not item.is_file or not item.path.lower().endswith(".parquet"):
+                continue
+            relative_path = item.path[len(base_path) + 1 :] if base_path else item.path
+            items.append(
+                {
+                    "name": Path(item.path).name,
+                    "relative_path": relative_path,
+                    "absolute_path": self._join_hdfs_path(root_uri, relative_path),
+                }
+            )
+        return items
+
+    def _join_hdfs_path(self, root_uri: str, relative_path: str) -> str:
+        return f"{root_uri.rstrip('/')}/{relative_path.lstrip('/')}"
+
+    def _read_hdfs_parquet(self, parquet_uri: str) -> Any:
+        self.ensure_hdfs_dependency()
+        import pyarrow.fs as pafs
+        import pyarrow.parquet as pq
+
+        filesystem, path = pafs.FileSystem.from_uri(parquet_uri)
+        return pq.read_table(path, filesystem=filesystem)
