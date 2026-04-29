@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import subprocess
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -76,11 +79,15 @@ class QueryEngine:
 
     def ensure_hdfs_dependency(self) -> None:
         try:
-            import pyarrow.fs  # noqa: F401
-            import pyarrow.parquet  # noqa: F401
-        except ImportError as exc:  # pragma: no cover - dependency driven
+            subprocess.run(
+                ["hdfs", "dfs", "-ls", "/"],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except FileNotFoundError as exc:  # pragma: no cover - environment driven
             raise QueryValidationError(
-                "HDFS support requires pyarrow. Install requirements and ensure HDFS client libraries are configured."
+                "HDFS support requires the 'hdfs' CLI to be installed and available in PATH."
             ) from exc
 
     def list_files(
@@ -254,12 +261,11 @@ class QueryEngine:
     def _register_table(self, conn: duckdb.DuckDBPyConnection, parquet_path: Any) -> None:
         parquet_reference = str(parquet_path)
         if self._is_hdfs_uri(parquet_reference):
-            arrow_table = self._read_hdfs_parquet(parquet_reference)
-            conn.register("current_parquet_arrow", arrow_table)
-            conn.execute("CREATE OR REPLACE VIEW current_parquet AS SELECT * FROM current_parquet_arrow")
-            return
+            parquet_reference = self._copy_hdfs_parquet_to_local(parquet_reference)
 
         safe_path = str(parquet_path).replace("'", "''")
+        if self._is_hdfs_uri(str(parquet_path)):
+            safe_path = str(parquet_reference).replace("'", "''")
         conn.execute(
             f"CREATE OR REPLACE VIEW current_parquet AS SELECT * FROM read_parquet('{safe_path}')"
         )
@@ -289,20 +295,36 @@ class QueryEngine:
 
     def _list_hdfs_files(self, root_uri: str, recursive: bool) -> list[dict[str, str]]:
         self.ensure_hdfs_dependency()
-        import pyarrow.fs as pafs
+        command = ["hdfs", "dfs", "-ls"]
+        if recursive:
+            command.append("-R")
+        command.append(root_uri)
+        try:
+            result = subprocess.run(
+                command,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise QueryValidationError(exc.stderr.strip() or "Unable to list HDFS path.") from exc
 
-        filesystem, path = pafs.FileSystem.from_uri(root_uri)
-        selector = pafs.FileSelector(path, recursive=recursive)
-        file_infos = filesystem.get_file_info(selector)
-        base_path = path.rstrip("/")
         items = []
-        for item in file_infos:
-            if not item.is_file or not item.path.lower().endswith(".parquet"):
+        base_path = root_uri.rstrip("/")
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if not line or line.startswith("Found "):
                 continue
-            relative_path = item.path[len(base_path) + 1 :] if base_path else item.path
+            parts = line.split()
+            if len(parts) < 8 or not parts[0].startswith("-"):
+                continue
+            file_path = parts[-1]
+            if not file_path.lower().endswith(".parquet"):
+                continue
+            relative_path = file_path[len(base_path) + 1 :] if file_path.startswith(f"{base_path}/") else Path(file_path).name
             items.append(
                 {
-                    "name": Path(item.path).name,
+                    "name": Path(file_path).name,
                     "relative_path": relative_path,
                     "absolute_path": self._join_hdfs_path(root_uri, relative_path),
                 }
@@ -312,10 +334,18 @@ class QueryEngine:
     def _join_hdfs_path(self, root_uri: str, relative_path: str) -> str:
         return f"{root_uri.rstrip('/')}/{relative_path.lstrip('/')}"
 
-    def _read_hdfs_parquet(self, parquet_uri: str) -> Any:
+    def _copy_hdfs_parquet_to_local(self, parquet_uri: str) -> str:
         self.ensure_hdfs_dependency()
-        import pyarrow.fs as pafs
-        import pyarrow.parquet as pq
-
-        filesystem, path = pafs.FileSystem.from_uri(parquet_uri)
-        return pq.read_table(path, filesystem=filesystem)
+        cache_root = Path(tempfile.gettempdir()) / "parquet_viewer_hdfs_cache"
+        cache_root.mkdir(parents=True, exist_ok=True)
+        cache_path = cache_root / f"{hashlib.sha256(parquet_uri.encode('utf-8')).hexdigest()}.parquet"
+        try:
+            subprocess.run(
+                ["hdfs", "dfs", "-copyToLocal", "-f", parquet_uri, str(cache_path)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise QueryValidationError(exc.stderr.strip() or "Unable to read parquet file from HDFS.") from exc
+        return str(cache_path)

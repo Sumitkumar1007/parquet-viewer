@@ -53,6 +53,12 @@ mkdir -p runtime data
 
 If parquet files live elsewhere, point `PARQUET_ROOT` and `PARQUET_PATH` to that location in `.env`.
 
+If you plan to read from HDFS instead of local disk:
+
+- `data/` is not required for HDFS-only usage
+- you can set `PARQUET_ROOT` to an HDFS URI such as `hdfs://namenode:8020/user/data/parquet`
+- file selection in the UI can also use an HDFS root path directly
+
 ## 5. Configure Environment
 
 ```bash
@@ -68,6 +74,11 @@ Edit `.env` and set:
 - `PARQUET_PATH`
 - optional pagination/upload settings
 
+For HDFS deployments:
+
+- `PARQUET_ROOT` can be an HDFS URI like `hdfs://namenode:8020/user/data/parquet`
+- `PARQUET_PATH` can be a specific HDFS parquet file like `hdfs://namenode:8020/user/data/parquet/sample.parquet`
+
 Generate password hash:
 
 ```bash
@@ -80,6 +91,24 @@ Paste output into:
 ```text
 ADMIN_PASSWORD_HASH=...
 ```
+
+## 5A. HDFS Requirements
+
+If you will query parquet files from HDFS, make sure this server also has:
+
+- `pyarrow` installed from [requirements.txt](/home/ubuntu/aiml/parquet_viewer/requirements.txt:1)
+- network access to the HDFS namenode
+- working HDFS client/native libraries required by PyArrow in your environment
+- permission to read the target HDFS directories
+
+Example HDFS values in `.env`:
+
+```text
+PARQUET_ROOT=hdfs://namenode:8020/user/warehouse/parquet
+PARQUET_PATH=hdfs://namenode:8020/user/warehouse/parquet/sample.parquet
+```
+
+If HDFS access is not configured correctly, file listing or query execution will fail even though the app itself is running.
 
 ## 6. Create Additional Users
 

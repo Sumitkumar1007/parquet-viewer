@@ -96,7 +96,7 @@ parquet_viewer/
 
 ## Requirements
 
-Python `3.12+` recommended.
+Python `3.9+` recommended.
 
 Install packages from [requirements.txt](/home/ubuntu/aiml/parquet_viewer/requirements.txt:1):
 
@@ -198,6 +198,18 @@ Example:
 - `/data/parquet` -> files in that exact folder only
 - not recursive into deeper subfolders
 
+HDFS root path also supported:
+
+- `hdfs://namenode:8020/user/data/parquet`
+
+When using HDFS:
+
+- app lists parquet files from that HDFS folder
+- selected parquet file is read through `pyarrow`
+- server must have network access to HDFS
+- Python environment must have `pyarrow` installed from [requirements.txt](/home/ubuntu/aiml/parquet_viewer/requirements.txt:1)
+- HDFS client libraries and cluster connectivity must already work on that server
+
 ## How Queries Work
 
 Selected parquet file is exposed as:
@@ -222,6 +234,11 @@ ORDER BY total_revenue DESC;
 ```sql
 DESCRIBE current_parquet;
 ```
+
+The same query flow works for both:
+
+- local parquet files
+- HDFS parquet files selected from an `hdfs://...` root path
 
 ## API Overview
 
