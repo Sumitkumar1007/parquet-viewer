@@ -13,7 +13,6 @@ const applyRootPathButton = document.getElementById("applyRootPathButton");
 const folderBrowserPath = document.getElementById("folderBrowserPath");
 const folderBrowserList = document.getElementById("folderBrowserList");
 const folderUpButton = document.getElementById("folderUpButton");
-const useFolderButton = document.getElementById("useFolderButton");
 const refreshSchemaButton = document.getElementById("refreshSchemaButton");
 const previewButton = document.getElementById("previewButton");
 const runButton = document.getElementById("runButton");
@@ -297,12 +296,11 @@ async function refreshFiles() {
 }
 
 function renderFolderBrowser(data) {
-  if (!folderBrowserList || !folderBrowserPath || !folderUpButton || !useFolderButton) return;
+  if (!folderBrowserList || !folderBrowserPath || !folderUpButton) return;
   baseFolderPath = data.base_path || "";
   currentFolderBrowserPath = data.current_path || baseFolderPath;
   folderBrowserPath.textContent = currentFolderBrowserPath || baseFolderPath;
   folderUpButton.disabled = !currentFolderBrowserPath || currentFolderBrowserPath === baseFolderPath;
-  useFolderButton.disabled = !currentFolderBrowserPath;
 
   if (!data.items.length) {
     folderBrowserList.innerHTML = `<div class="empty">No subfolders found here.</div>`;
@@ -324,7 +322,11 @@ function renderFolderBrowser(data) {
     button.addEventListener("click", async () => {
       setBusyState(true, "Opening folder...");
       try {
+        rootPathInput.value = button.dataset.folder;
+        currentRootPath = button.dataset.folder.trim();
         await loadFolders(button.dataset.folder);
+        clearDatasetState("Folder selected. Click Load to fetch parquet files.");
+        setStatus("Folder selected. Click Load to fetch parquet files.");
       } catch (error) {
         setStatus(error.message, true);
       } finally {
@@ -398,13 +400,6 @@ folderUpButton?.addEventListener("click", async () => {
   } finally {
     setBusyState(false);
   }
-});
-
-useFolderButton?.addEventListener("click", () => {
-  if (!currentFolderBrowserPath) return;
-  rootPathInput.value = currentFolderBrowserPath;
-  currentRootPath = currentFolderBrowserPath.trim();
-  setStatus("Folder selected. Click Load to use it.");
 });
 
 refreshFilesButton.addEventListener("click", async () => {
