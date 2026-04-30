@@ -395,8 +395,9 @@ label span,
 }
 
 .control-grid {
-  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-  align-items: stretch;
+  grid-template-columns: repeat(2, minmax(320px, 420px));
+  align-items: start;
+  justify-content: start;
 }
 
 .panel-box {
@@ -405,6 +406,7 @@ label span,
   display: flex;
   flex-direction: column;
   min-height: 0;
+  align-self: start;
 }
 
 .folder-browser-box {
@@ -588,8 +590,7 @@ body.app-busy #resultsMeta::after {
 }
 
 .schema-list {
-  flex: 1 1 auto;
-  max-height: none;
+  max-height: 620px;
 }
 
 .file-item,
@@ -671,6 +672,10 @@ td {
 }
 
 @media (max-width: 980px) {
+  .control-grid {
+    grid-template-columns: 1fr;
+  }
+
   .folder-browser-box .panel-head {
     align-items: flex-start;
     flex-wrap: wrap;
