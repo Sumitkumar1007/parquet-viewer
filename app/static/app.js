@@ -325,8 +325,8 @@ function renderFolderBrowser(data) {
         rootPathInput.value = button.dataset.folder;
         currentRootPath = button.dataset.folder.trim();
         await loadFolders(button.dataset.folder);
-        clearDatasetState("Folder selected. Click Load to fetch parquet files.");
-        setStatus("Folder selected. Click Load to fetch parquet files.");
+        clearDatasetState("Folder selected. Click Load to fetch parquet files from this folder.");
+        setStatus("Folder selected. Click Load to fetch parquet files from this folder.");
       } catch (error) {
         setStatus(error.message, true);
       } finally {
@@ -424,14 +424,14 @@ applyRootPathButton.addEventListener("click", async () => {
   currentRootPath = rootPathInput.value.trim();
   recursiveScan = false;
   clearDatasetState("Loading root path...");
-  setBusyState(true, "Loading dataset...");
+  setBusyState(true, "Fetching parquet files from selected folder...");
   try {
     const items = await refreshFiles();
     if (items.length) {
       await refreshSchema();
       resultsTable.innerHTML = `<div class="empty">Click Preview to load rows.</div>`;
       pageInfo.textContent = "Page 1";
-      setStatus("Root path loaded. Click Preview to load rows.");
+      setStatus("Parquet files loaded from selected folder. Click Preview to load rows.");
     }
   } catch (error) {
     fileList.innerHTML = `<div class="empty">No parquet files found in root folder.</div>`;

@@ -56,18 +56,26 @@
               <div class="panel-head">
                 <div>
                   <div class="section-kicker">Folder browser</div>
-                  <h3>Root path</h3>
+                  <h3>{% if hdfs_base_path %}Selected folder{% else %}Root path{% endif %}</h3>
                 </div>
                 <button id="refreshFilesButton" class="outline-button" type="button">Refresh</button>
               </div>
 
               <label>
-                <span>Root path</span>
+                <span>{% if hdfs_base_path %}Selected folder{% else %}Root path{% endif %}</span>
                 <div class="path-row">
-                  <input id="rootPathInput" type="text" value="{{ parquet_root }}" />
+                  <input
+                    id="rootPathInput"
+                    type="text"
+                    value="{{ parquet_root }}"
+                    {% if hdfs_base_path %}readonly{% endif %}
+                  />
                   <button id="applyRootPathButton" class="outline-button" type="button">Load</button>
                 </div>
               </label>
+              {% if hdfs_base_path %}
+              <div class="hint">Choose a folder from the HDFS browser below, then click Load to fetch parquet files from that folder.</div>
+              {% endif %}
 
               {% if hdfs_base_path %}
               <div class="folder-browser-box">

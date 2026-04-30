@@ -254,6 +254,11 @@ button {
   gap: 0.8rem;
 }
 
+.panel-head > div,
+.section-title-row > div {
+  min-width: 0;
+}
+
 .topbar h1,
 .section-title-row h2,
 .panel-head h3,
@@ -398,6 +403,7 @@ label span,
   display: grid;
   gap: 0.75rem;
   margin-top: 0.9rem;
+  min-width: 0;
 }
 
 .browser-actions {
@@ -407,6 +413,18 @@ label span,
   gap: 0.6rem;
   flex-wrap: wrap;
   flex-shrink: 0;
+}
+
+#folderBrowserPath,
+.folder-browser-box .hint,
+.file-item small {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+#rootPathInput[readonly] {
+  background: #f6f8fe;
+  cursor: default;
 }
 
 .narrow-box {
