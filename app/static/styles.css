@@ -148,6 +148,7 @@ button {
 
 .main-shell {
   padding: 2rem 2.8rem 3rem;
+  min-width: 0;
 }
 
 .login-view,
@@ -183,6 +184,7 @@ button {
 .content-view {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
 .page-hidden {
@@ -331,6 +333,7 @@ label span,
 
 .board-card {
   padding: 1.45rem;
+  min-width: 0;
 }
 
 .topbar {
@@ -382,6 +385,7 @@ label span,
 .control-grid,
 .simple-output {
   padding-top: 1rem;
+  min-width: 0;
 }
 
 .control-grid {
@@ -613,7 +617,11 @@ body.app-busy #resultsMeta::after {
 }
 
 .table-wrap {
-  overflow: auto;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
   margin-top: 0.9rem;
   border-radius: 12px;
   border: 1px solid var(--border);
@@ -621,8 +629,8 @@ body.app-busy #resultsMeta::after {
 }
 
 table {
-  width: 100%;
-  min-width: 640px;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
 }
 
