@@ -395,9 +395,8 @@ label span,
 }
 
 .control-grid {
-  grid-template-columns: repeat(2, minmax(320px, 420px));
-  align-items: start;
-  justify-content: start;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  align-items: stretch;
 }
 
 .panel-box {
@@ -406,7 +405,6 @@ label span,
   display: flex;
   flex-direction: column;
   min-height: 0;
-  align-self: start;
 }
 
 .folder-browser-box {
