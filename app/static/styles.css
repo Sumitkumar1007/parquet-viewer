@@ -396,11 +396,15 @@ label span,
 
 .control-grid {
   grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  align-items: stretch;
 }
 
 .panel-box {
   padding: 1rem;
   background: var(--surface-soft);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .folder-browser-box {
@@ -576,6 +580,7 @@ body.app-busy #resultsMeta::after {
   gap: 0.7rem;
   margin-top: 1rem;
   overflow: auto;
+  min-height: 0;
 }
 
 .file-list {
@@ -583,7 +588,8 @@ body.app-busy #resultsMeta::after {
 }
 
 .schema-list {
-  max-height: 360px;
+  flex: 1 1 auto;
+  max-height: none;
 }
 
 .file-item,
