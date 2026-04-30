@@ -38,6 +38,7 @@ def home(request: Request) -> HTMLResponse:
             "app_name": settings.app_name,
             "parquet_path": str(settings.parquet_path),
             "parquet_root": str(settings.parquet_root),
+            "hdfs_base_path": settings.hdfs_base_path,
             "environment": settings.app_env,
         },
     )

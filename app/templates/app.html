@@ -69,6 +69,16 @@
                 </div>
               </label>
 
+              {% if hdfs_base_path %}
+              <label>
+                <span>Dataset folder</span>
+                <select id="folderSelect">
+                  <option value="">Select folder from {{ hdfs_base_path }}</option>
+                </select>
+              </label>
+              <div class="hint">Base path fixed to {{ hdfs_base_path }}</div>
+              {% endif %}
+
               <div class="hint">Pick folder containing parquet files. Viewing only, no writes.</div>
               <div id="fileList" class="file-list"></div>
             </article>

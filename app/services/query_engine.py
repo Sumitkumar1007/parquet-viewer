@@ -115,6 +115,25 @@ class QueryEngine:
         ]
         return {"root_path": str(resolved_root), "items": items, "recursive": scan_recursive}
 
+    def list_directories(self, base_path: str) -> dict[str, object]:
+        if self._is_hdfs_uri(base_path):
+            items = self._list_hdfs_directories(base_path.rstrip("/"))
+            return {"base_path": base_path.rstrip("/"), "items": items}
+
+        resolved_base = Path(base_path).expanduser().resolve()
+        if not resolved_base.exists() or not resolved_base.is_dir():
+            raise QueryValidationError("Base path must be an existing directory.")
+        items = [
+            {
+                "name": item.name,
+                "relative_path": item.relative_to(resolved_base).as_posix(),
+                "absolute_path": str(item.resolve()),
+            }
+            for item in sorted(resolved_base.iterdir())
+            if item.is_dir()
+        ]
+        return {"base_path": str(resolved_base), "items": items}
+
     def resolve_root(self, root_path: Optional[str] = None) -> Any:
         if root_path and self._is_hdfs_uri(root_path):
             return root_path.rstrip("/")
@@ -372,6 +391,39 @@ class QueryEngine:
                     "name": Path(file_path).name,
                     "relative_path": relative_path,
                     "absolute_path": self._join_hdfs_path(root_uri, relative_path),
+                }
+            )
+        return items
+
+    def _list_hdfs_directories(self, base_uri: str) -> list[dict[str, str]]:
+        self.ensure_hdfs_dependency()
+        try:
+            result = subprocess.run(
+                ["hdfs", "dfs", "-ls", base_uri],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise QueryValidationError(exc.stderr.strip() or "Unable to list HDFS base path.") from exc
+
+        items: list[dict[str, str]] = []
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if not line or line.startswith("Found "):
+                continue
+            parts = line.split()
+            if len(parts) < 8 or not parts[0].startswith("d"):
+                continue
+            directory_path = parts[-1]
+            relative_path = (
+                directory_path[len(base_uri) + 1 :] if directory_path.startswith(f"{base_uri}/") else Path(directory_path).name
+            )
+            items.append(
+                {
+                    "name": Path(directory_path).name,
+                    "relative_path": relative_path,
+                    "absolute_path": directory_path,
                 }
             )
         return items

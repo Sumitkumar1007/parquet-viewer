@@ -23,6 +23,7 @@ class Settings:
     allow_recursive_scan: bool
     users_file: Path
     audit_log_path: Path
+    hdfs_base_path: str
 
 
 def _load_dotenv() -> None:
@@ -66,6 +67,7 @@ def get_settings() -> Settings:
     allow_recursive_scan = os.getenv("ALLOW_RECURSIVE_SCAN", "false").lower() == "true"
     users_file = Path(os.getenv("USERS_FILE", "./runtime/users.json")).resolve()
     audit_log_path = Path(os.getenv("AUDIT_LOG_PATH", "./runtime/audit.log")).resolve()
+    hdfs_base_path = os.getenv("HDFS_BASE_PATH", "").strip().rstrip("/")
 
     return Settings(
         app_name=app_name,
@@ -83,4 +85,5 @@ def get_settings() -> Settings:
         allow_recursive_scan=allow_recursive_scan,
         users_file=users_file,
         audit_log_path=audit_log_path,
+        hdfs_base_path=hdfs_base_path,
     )

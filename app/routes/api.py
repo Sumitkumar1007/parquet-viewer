@@ -78,6 +78,7 @@ def health(settings: Settings = Depends(get_settings)) -> dict[str, object]:
         "environment": settings.app_env,
         "parquet_path": str(settings.parquet_path),
         "parquet_root": str(settings.parquet_root),
+        "hdfs_base_path": settings.hdfs_base_path,
     }
 
 
@@ -171,6 +172,20 @@ def files(
 ) -> dict[str, object]:
     try:
         return engine.list_files(root_path, recursive)
+    except QueryValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get("/folders")
+def folders(
+    _: UserRecord = Depends(require_user),
+    settings: Settings = Depends(get_settings),
+    engine: QueryEngine = Depends(get_query_engine),
+) -> dict[str, object]:
+    if not settings.hdfs_base_path:
+        return {"base_path": "", "items": []}
+    try:
+        return engine.list_directories(settings.hdfs_base_path)
     except QueryValidationError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

@@ -10,6 +10,7 @@ const fileList = document.getElementById("fileList");
 const refreshFilesButton = document.getElementById("refreshFilesButton");
 const rootPathInput = document.getElementById("rootPathInput");
 const applyRootPathButton = document.getElementById("applyRootPathButton");
+const folderSelect = document.getElementById("folderSelect");
 const refreshSchemaButton = document.getElementById("refreshSchemaButton");
 const previewButton = document.getElementById("previewButton");
 const runButton = document.getElementById("runButton");
@@ -35,6 +36,7 @@ let currentPageSize = 50;
 let lastQuery = "SELECT * FROM current_parquet LIMIT 25";
 let lastMode = "preview";
 let isBusy = false;
+let baseFolderPath = "";
 
 function applySidebarState(collapsed) {
   if (!appShell || !sidebarToggleButton) return;
@@ -290,11 +292,25 @@ async function refreshFiles() {
   return data.items;
 }
 
+async function loadFolders() {
+  if (!folderSelect) return;
+  const data = await api("/api/folders", { method: "GET" });
+  baseFolderPath = data.base_path || "";
+  folderSelect.innerHTML = [
+    `<option value="">Select folder from ${escapeHtml(baseFolderPath || "configured base path")}</option>`,
+    ...data.items.map(
+      (item) =>
+        `<option value="${escapeHtml(item.absolute_path)}">${escapeHtml(item.name)}</option>`,
+    ),
+  ].join("");
+}
+
 async function bootstrap() {
   try {
     applySidebarState(loadSidebarState());
     const me = await api("/api/auth/me", { method: "GET" });
     userBadge.textContent = me.username;
+    await loadFolders();
     const items = await refreshFiles();
     if (items.length) {
       await refreshSchema();
@@ -332,6 +348,16 @@ refreshSchemaButton.addEventListener("click", async () => {
   } finally {
     setBusyState(false);
   }
+});
+
+folderSelect?.addEventListener("change", () => {
+  if (!folderSelect.value) {
+    rootPathInput.value = baseFolderPath || rootPathInput.value;
+    currentRootPath = rootPathInput.value.trim();
+    return;
+  }
+  rootPathInput.value = folderSelect.value;
+  currentRootPath = folderSelect.value.trim();
 });
 
 refreshFilesButton.addEventListener("click", async () => {
