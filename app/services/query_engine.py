@@ -115,24 +115,39 @@ class QueryEngine:
         ]
         return {"root_path": str(resolved_root), "items": items, "recursive": scan_recursive}
 
-    def list_directories(self, base_path: str) -> dict[str, object]:
+    def list_directories(self, base_path: str, current_path: Optional[str] = None) -> dict[str, object]:
         if self._is_hdfs_uri(base_path):
-            items = self._list_hdfs_directories(base_path.rstrip("/"))
-            return {"base_path": base_path.rstrip("/"), "items": items}
+            normalized_base = base_path.rstrip("/")
+            normalized_current = (current_path or normalized_base).rstrip("/")
+            if not normalized_current.startswith(normalized_base):
+                raise QueryValidationError("Folder path must stay inside configured HDFS base path.")
+            items = self._list_hdfs_directories(normalized_current)
+            return {
+                "base_path": normalized_base,
+                "current_path": normalized_current,
+                "items": items,
+            }
 
         resolved_base = Path(base_path).expanduser().resolve()
+        resolved_current = Path(current_path).expanduser().resolve() if current_path else resolved_base
         if not resolved_base.exists() or not resolved_base.is_dir():
             raise QueryValidationError("Base path must be an existing directory.")
+        if resolved_base not in resolved_current.parents and resolved_current != resolved_base:
+            raise QueryValidationError("Folder path must stay inside configured base path.")
         items = [
             {
                 "name": item.name,
                 "relative_path": item.relative_to(resolved_base).as_posix(),
                 "absolute_path": str(item.resolve()),
             }
-            for item in sorted(resolved_base.iterdir())
+            for item in sorted(resolved_current.iterdir())
             if item.is_dir()
         ]
-        return {"base_path": str(resolved_base), "items": items}
+        return {
+            "base_path": str(resolved_base),
+            "current_path": str(resolved_current),
+            "items": items,
+        }
 
     def resolve_root(self, root_path: Optional[str] = None) -> Any:
         if root_path and self._is_hdfs_uri(root_path):

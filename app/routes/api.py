@@ -178,6 +178,7 @@ def files(
 
 @router.get("/folders")
 def folders(
+    path: Optional[str] = None,
     _: UserRecord = Depends(require_user),
     settings: Settings = Depends(get_settings),
     engine: QueryEngine = Depends(get_query_engine),
@@ -185,7 +186,7 @@ def folders(
     if not settings.hdfs_base_path:
         return {"base_path": "", "items": []}
     try:
-        return engine.list_directories(settings.hdfs_base_path)
+        return engine.list_directories(settings.hdfs_base_path, path)
     except QueryValidationError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

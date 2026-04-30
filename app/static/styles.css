@@ -394,6 +394,12 @@ label span,
   background: var(--surface-soft);
 }
 
+.folder-browser-box {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
 .narrow-box {
   align-self: start;
 }

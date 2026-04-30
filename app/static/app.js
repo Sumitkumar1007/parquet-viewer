@@ -10,7 +10,10 @@ const fileList = document.getElementById("fileList");
 const refreshFilesButton = document.getElementById("refreshFilesButton");
 const rootPathInput = document.getElementById("rootPathInput");
 const applyRootPathButton = document.getElementById("applyRootPathButton");
-const folderSelect = document.getElementById("folderSelect");
+const folderBrowserPath = document.getElementById("folderBrowserPath");
+const folderBrowserList = document.getElementById("folderBrowserList");
+const folderUpButton = document.getElementById("folderUpButton");
+const useFolderButton = document.getElementById("useFolderButton");
 const refreshSchemaButton = document.getElementById("refreshSchemaButton");
 const previewButton = document.getElementById("previewButton");
 const runButton = document.getElementById("runButton");
@@ -37,6 +40,7 @@ let lastQuery = "SELECT * FROM current_parquet LIMIT 25";
 let lastMode = "preview";
 let isBusy = false;
 let baseFolderPath = "";
+let currentFolderBrowserPath = "";
 
 function applySidebarState(collapsed) {
   if (!appShell || !sidebarToggleButton) return;
@@ -292,17 +296,50 @@ async function refreshFiles() {
   return data.items;
 }
 
-async function loadFolders() {
-  if (!folderSelect) return;
-  const data = await api("/api/folders", { method: "GET" });
+function renderFolderBrowser(data) {
+  if (!folderBrowserList || !folderBrowserPath || !folderUpButton || !useFolderButton) return;
   baseFolderPath = data.base_path || "";
-  folderSelect.innerHTML = [
-    `<option value="">Select folder from ${escapeHtml(baseFolderPath || "configured base path")}</option>`,
-    ...data.items.map(
-      (item) =>
-        `<option value="${escapeHtml(item.absolute_path)}">${escapeHtml(item.name)}</option>`,
-    ),
-  ].join("");
+  currentFolderBrowserPath = data.current_path || baseFolderPath;
+  folderBrowserPath.textContent = currentFolderBrowserPath || baseFolderPath;
+  folderUpButton.disabled = !currentFolderBrowserPath || currentFolderBrowserPath === baseFolderPath;
+  useFolderButton.disabled = !currentFolderBrowserPath;
+
+  if (!data.items.length) {
+    folderBrowserList.innerHTML = `<div class="empty">No subfolders found here.</div>`;
+    return;
+  }
+
+  folderBrowserList.innerHTML = data.items
+    .map(
+      (item) => `
+        <button class="file-item folder-item" type="button" data-folder="${escapeHtml(item.absolute_path)}">
+          ${escapeHtml(item.name)}
+          <small>${escapeHtml(item.absolute_path)}</small>
+        </button>
+      `,
+    )
+    .join("");
+
+  folderBrowserList.querySelectorAll(".folder-item").forEach((button) => {
+    button.addEventListener("click", async () => {
+      setBusyState(true, "Opening folder...");
+      try {
+        await loadFolders(button.dataset.folder);
+      } catch (error) {
+        setStatus(error.message, true);
+      } finally {
+        setBusyState(false);
+      }
+    });
+  });
+}
+
+async function loadFolders(path = "") {
+  if (!folderBrowserList) return;
+  const suffix = path ? `?path=${encodeURIComponent(path)}` : "";
+  const data = await api(`/api/folders${suffix}`, { method: "GET" });
+  baseFolderPath = data.base_path || "";
+  renderFolderBrowser(data);
 }
 
 async function bootstrap() {
@@ -350,14 +387,24 @@ refreshSchemaButton.addEventListener("click", async () => {
   }
 });
 
-folderSelect?.addEventListener("change", () => {
-  if (!folderSelect.value) {
-    rootPathInput.value = baseFolderPath || rootPathInput.value;
-    currentRootPath = rootPathInput.value.trim();
-    return;
+folderUpButton?.addEventListener("click", async () => {
+  if (!currentFolderBrowserPath || currentFolderBrowserPath === baseFolderPath) return;
+  const nextPath = currentFolderBrowserPath.split("/").slice(0, -1).join("/") || baseFolderPath;
+  setBusyState(true, "Opening folder...");
+  try {
+    await loadFolders(nextPath);
+  } catch (error) {
+    setStatus(error.message, true);
+  } finally {
+    setBusyState(false);
   }
-  rootPathInput.value = folderSelect.value;
-  currentRootPath = folderSelect.value.trim();
+});
+
+useFolderButton?.addEventListener("click", () => {
+  if (!currentFolderBrowserPath) return;
+  rootPathInput.value = currentFolderBrowserPath;
+  currentRootPath = currentFolderBrowserPath.trim();
+  setStatus("Folder selected. Click Load to use it.");
 });
 
 refreshFilesButton.addEventListener("click", async () => {
