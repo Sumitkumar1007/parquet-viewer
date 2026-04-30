@@ -146,10 +146,6 @@ button {
   border-left-color: var(--success);
 }
 
-#logoutMenuButton {
-  color: #f7dede;
-}
-
 .main-shell {
   padding: 2rem 2.8rem 3rem;
 }
@@ -187,6 +183,10 @@ button {
 .content-view {
   display: grid;
   gap: 2px;
+}
+
+.page-hidden {
+  display: none;
 }
 
 .sidebar-toggle {
@@ -427,6 +427,33 @@ label span,
   cursor: default;
 }
 
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.settings-item {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.settings-label {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 1rem;
+}
+
 .narrow-box {
   align-self: start;
 }
@@ -638,6 +665,10 @@ td {
   .browser-actions {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
   }
 }
 

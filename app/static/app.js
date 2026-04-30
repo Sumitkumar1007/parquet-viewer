@@ -1,5 +1,6 @@
 const logoutButton = document.getElementById("logoutButton");
-const logoutMenuButton = document.getElementById("logoutMenuButton");
+const queryMenuButton = document.getElementById("queryMenuButton");
+const settingsMenuButton = document.getElementById("settingsMenuButton");
 const changePasswordButton = document.getElementById("changePasswordButton");
 const closePasswordModalButton = document.getElementById("closePasswordModalButton");
 const passwordModal = document.getElementById("passwordModal");
@@ -24,8 +25,12 @@ const nextPageButton = document.getElementById("nextPageButton");
 const pageInfo = document.getElementById("pageInfo");
 const activeFile = document.getElementById("activeFile");
 const userBadge = document.getElementById("userBadge");
+const settingsUsername = document.getElementById("settingsUsername");
+const settingsRole = document.getElementById("settingsRole");
 const appShell = document.querySelector(".app-shell");
 const sidebarToggleButton = document.getElementById("sidebarToggleButton");
+const queryView = document.getElementById("queryView");
+const settingsView = document.getElementById("settingsView");
 
 const SIDEBAR_STORAGE_KEY = "pqv-sidebar-collapsed";
 const ALL_FILES_TOKEN = "__ALL_PARQUET_FILES__";
@@ -40,6 +45,20 @@ let lastMode = "preview";
 let isBusy = false;
 let baseFolderPath = "";
 let currentFolderBrowserPath = "";
+let currentView = "query";
+
+function renderView(view) {
+  currentView = view;
+  queryView?.classList.toggle("page-hidden", view !== "query");
+  settingsView?.classList.toggle("page-hidden", view !== "settings");
+  queryMenuButton?.classList.toggle("active", view === "query");
+  settingsMenuButton?.classList.toggle("active", view === "settings");
+}
+
+function renderFilePlaceholder(message = "Choose a folder and click Load to fetch parquet files.") {
+  if (!fileList) return;
+  fileList.innerHTML = `<div class="empty">${escapeHtml(message)}</div>`;
+}
 
 function applySidebarState(collapsed) {
   if (!appShell || !sidebarToggleButton) return;
@@ -104,6 +123,7 @@ function clearDatasetState(message = "No result yet.") {
   activeFile.textContent = "Active dataset: none";
   schemaList.innerHTML = `<div class="empty">No schema loaded.</div>`;
   resultsTable.innerHTML = `<div class="empty">Click Preview to load rows.</div>`;
+  pageInfo.textContent = "Page 1";
   previewButton.disabled = true;
   runButton.disabled = true;
   setStatus(message);
@@ -349,13 +369,12 @@ async function bootstrap() {
     applySidebarState(loadSidebarState());
     const me = await api("/api/auth/me", { method: "GET" });
     userBadge.textContent = me.username;
+    if (settingsUsername) settingsUsername.textContent = me.username;
+    if (settingsRole) settingsRole.textContent = me.role;
+    renderView("query");
     await loadFolders();
-    const items = await refreshFiles();
-    if (items.length) {
-      await refreshSchema();
-      resultsTable.innerHTML = `<div class="empty">Click Preview to load rows.</div>`;
-      setStatus("Dataset ready. Click Preview to load rows.");
-    }
+    renderFilePlaceholder();
+    clearDatasetState("Choose a folder and click Load to fetch parquet files.");
   } catch {
     window.location.href = "/login";
   }
@@ -372,9 +391,12 @@ logoutButton.addEventListener("click", async () => {
   window.location.href = "/login";
 });
 
-logoutMenuButton.addEventListener("click", async () => {
-  await api("/api/auth/logout", { method: "POST", body: "{}" });
-  window.location.href = "/login";
+queryMenuButton?.addEventListener("click", () => {
+  renderView("query");
+});
+
+settingsMenuButton?.addEventListener("click", () => {
+  renderView("settings");
 });
 
 refreshSchemaButton.addEventListener("click", async () => {
@@ -423,6 +445,7 @@ refreshFilesButton.addEventListener("click", async () => {
 applyRootPathButton.addEventListener("click", async () => {
   currentRootPath = rootPathInput.value.trim();
   recursiveScan = false;
+  renderFilePlaceholder("Fetching parquet files...");
   clearDatasetState("Loading root path...");
   setBusyState(true, "Fetching parquet files from selected folder...");
   try {
@@ -432,9 +455,11 @@ applyRootPathButton.addEventListener("click", async () => {
       resultsTable.innerHTML = `<div class="empty">Click Preview to load rows.</div>`;
       pageInfo.textContent = "Page 1";
       setStatus("Parquet files loaded from selected folder. Click Preview to load rows.");
+    } else {
+      renderFilePlaceholder("No parquet files found in selected folder.");
     }
   } catch (error) {
-    fileList.innerHTML = `<div class="empty">No parquet files found in root folder.</div>`;
+    renderFilePlaceholder("No parquet files found in selected folder.");
     setStatus(error.message, true);
   } finally {
     setBusyState(false);
