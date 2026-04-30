@@ -293,7 +293,6 @@ async function refreshFiles() {
 async function bootstrap() {
   try {
     applySidebarState(loadSidebarState());
-    recursiveScan = true;
     const me = await api("/api/auth/me", { method: "GET" });
     userBadge.textContent = me.username;
     const items = await refreshFiles();
@@ -355,7 +354,7 @@ refreshFilesButton.addEventListener("click", async () => {
 
 applyRootPathButton.addEventListener("click", async () => {
   currentRootPath = rootPathInput.value.trim();
-  recursiveScan = true;
+  recursiveScan = false;
   clearDatasetState("Loading root path...");
   setBusyState(true, "Loading dataset...");
   try {
